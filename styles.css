@@ -1,0 +1,20 @@
+:root { --ink:#1c2421; --muted:#65716b; --paper:#f5f3ec; --card:#fffefa; --line:#dde2d8; --accent:#276749; --accent-dark:#174431; }
+* { box-sizing:border-box; }
+body { margin:0; color:var(--ink); background:var(--paper); font-family:ui-rounded, "Avenir Next", Avenir, sans-serif; }
+main { width:min(1120px, calc(100% - 40px)); margin:auto; padding:76px 0 48px; }
+.hero { max-width:720px; }
+.eyebrow { margin:0 0 12px; color:var(--accent); font-size:.72rem; font-weight:800; letter-spacing:.13em; }
+h1 { margin:0; font-family:Georgia, serif; font-size:clamp(3rem, 8vw, 5.8rem); font-weight:500; letter-spacing:-.065em; line-height:.95; }
+.lede { max-width:510px; color:var(--muted); font-size:1.12rem; line-height:1.55; margin:24px 0; }
+.actions { display:flex; flex-wrap:wrap; gap:12px; }
+button { border:0; border-radius:999px; cursor:pointer; font:inherit; font-weight:750; padding:13px 20px; transition:transform .15s, background .15s; }
+button:hover:not(:disabled) { transform:translateY(-1px); }
+button:disabled { cursor:not-allowed; opacity:.45; }
+.primary { color:white; background:var(--accent); } .primary:hover:not(:disabled) { background:var(--accent-dark); }
+.secondary { color:var(--ink); background:#e5e8df; }
+.support-note { min-height:1.2em; color:var(--muted); font-size:.82rem; }
+.workspace { margin-top:72px; padding:28px; background:var(--card); border:1px solid var(--line); border-radius:20px; box-shadow:0 12px 40px #1f34210d; }
+.workspace-heading { display:flex; align-items:center; justify-content:space-between; gap:20px; } h2 { margin:0; font-size:1.35rem; letter-spacing:-.03em; }
+.empty-state { display:grid; place-items:center; min-height:230px; color:var(--muted); text-align:center; } .empty-state span { color:var(--accent); font-family:Georgia,serif; font-size:3.2rem; }
+.table-wrap { overflow:auto; margin-top:26px; } table { width:100%; border-collapse:collapse; font-size:.9rem; } th,td { padding:14px 12px; border-bottom:1px solid var(--line); text-align:left; white-space:nowrap; } th { color:var(--muted); font-size:.7rem; letter-spacing:.08em; text-transform:uppercase; } .new-name { color:var(--accent); font-weight:700; }
+@media (max-width:600px) { main { width:min(100% - 28px, 1120px); padding-top:48px; } .workspace { padding:20px 14px; } .workspace-heading { align-items:flex-start; flex-direction:column; } }
