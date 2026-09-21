@@ -19,6 +19,7 @@
           Create clean chronological filenames without uploading your images.
         </p>
         <button id="select-folder" class="primary">Select photo folder</button>
+        <p id="support-note" class="support-note"></p>
       </section>
 
       <section class="workspace" aria-live="polite">
@@ -27,11 +28,14 @@
             <p class="eyebrow">RENAME PLAN</p>
             <h2 id="plan-title">Choose a folder to begin</h2>
           </div>
-          <button id="apply-renames" class="primary" disabled>
-            Rename files
-          </button>
+          <div class="actions">
+            <button id="download-plan" class="secondary" disabled>Download plan</button>
+            <button id="apply-renames" class="primary" disabled>Rename files</button>
+          </div>
         </div>
-        <div id="empty-state" class="empty-state"></div>
+        <div id="empty-state" class="empty-state">
+          <p id="empty-copy">Select a folder of photos to preview chronological names.</p>
+        </div>
         <div id="table-wrap" class="table-wrap" hidden>
           <table>
             <thead>
@@ -39,6 +43,7 @@
                 <th>#</th>
                 <th>Current filename</th>
                 <th>Capture time</th>
+                <th>Source</th>
                 <th>New filename</th>
               </tr>
             </thead>
@@ -52,8 +57,11 @@
         <td class="index"></td>
         <td class="old-name"></td>
         <td class="date"></td>
+        <td class="source"></td>
         <td class="new-name"></td></tr
     ></template>
+    <script src="lib/exif-date.js"></script>
+    <script src="lib/plan.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

@@ -6,17 +6,17 @@ A private, browser-based utility for putting a batch of photos in chronological 
 
 ## First release
 
-- Choose a folder of images.
-- Read EXIF capture dates when available, falling back to the file modification date.
-- Preview the proposed name for every image.
-- Rename files in the selected folder in Chromium-based browsers.
-- Export a rename plan everywhere else.
+- Choose a folder of images from the command line or the browser page.
+- Read EXIF DateTimeOriginal when available, then similar EXIF/XMP dates, then file birth time, then the modification time. The browser page can see the modification time only.
+- Preview the proposed name for every image. The command line prints this plan and does not rename unless `--apply` is passed.
+- Rename files in the selected folder. Names that already exist get `_2`, `_3`, and so on instead of being overwritten.
+- Export a rename plan from the browser as CSV.
 
 ## Naming format
 
-`YYYY-MM-DD_HH-mm-ss_001.ext`
+`YYYY-MM-DD_HH-MM-SS.ext`
 
-The sequence suffix makes filenames unique when photos share a timestamp.
+`YYYY-MM-DD_HH-MM-SS_2.ext` when another file already uses that name.
 
 ## Deployment
 
