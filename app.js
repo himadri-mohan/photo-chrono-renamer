@@ -124,6 +124,7 @@ async function applyRenames() {
     supportNote.textContent = `Renamed ${changes.length} photo${changes.length === 1 ? "" : "s"}.`;
     planTitle.textContent = "Rename completed";
     applyButton.disabled = true;
+    downloadButton.disabled = false;
   } catch (error) {
     supportNote.textContent = error.message;
     applyButton.disabled = false;
