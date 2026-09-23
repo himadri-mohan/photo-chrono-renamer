@@ -1,18 +1,45 @@
 # Photo Chrono Renamer
 
-A privacy-first browser tool for sorting and renaming photos chronologically.
+Sort a folder of photos by capture time and rename them to consistent chronological filenames. Nothing is uploaded.
 
-## Run locally
+```text
+YYYY-MM-DD_HH-MM-SS.ext
+YYYY-MM-DD_HH-MM-SS_2.ext
+```
 
-Open `index.html` in a modern browser, or serve the directory with any static-file server.
+The first photo for a timestamp keeps the plain name. Later photos that would use the same name get `_2`, `_3`, and so on. Existing files are never overwritten.
 
-## Use it
+## Time source
 
-1. Choose **Select photo folder**.
-2. Review the chronological rename plan.
-3. Choose **Rename files** to apply it, or **Download plan** for a CSV record.
+1. EXIF `DateTimeOriginal`
+2. EXIF `DateTimeDigitized`
+3. XMP `DateTimeOriginal` or `CreateDate`
+4. EXIF `DateTime`
+5. File birth (creation) time, when the filesystem provides one
+6. File modification time
 
-Photos stay on your computer. Capture times are read from image EXIF data where possible, then fall back to each file's modified date.
+Supported types: jpg, jpeg, png, heic, heif, webp, tif, and tiff. Only files directly in the selected folder are renamed.
+
+## Command line
+
+Requires Node.js 18 or newer. There is no install step.
+
+```bash
+node cli.js ./photos
+node cli.js ./photos --apply
+```
+
+The first command prints a before/after mapping and does not change files. Add `--apply` to rename. Run `node cli.js --help` for the short usage text.
+
+```bash
+npm test
+```
+
+## Browser
+
+Open `index.html` in Chrome or Edge, or serve this folder with any static file server. Choose a folder, review the plan, then rename or download the plan as CSV.
+
+The page reads the same EXIF dates as the command-line tool. Browsers do not expose file birth time, so photos without EXIF use the file's modified time. Renaming in place uses the File System Access API (Chrome or Edge). Other browsers can still preview a plan and download it.
 
 ## Deploy with GitHub and Vercel
 

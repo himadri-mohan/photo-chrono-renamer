@@ -1,17 +1,35 @@
-const imageTypes = new Set(["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"]);
+"use strict";
+
+const {
+  buildRenamePlan,
+  formatDisplay,
+  isImageName,
+  parseEmbeddedCapture,
+  partsFromDate,
+} = globalThis.PhotoChrono;
+
+const imageTypes = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/heic",
+  "image/heif",
+  "image/tiff",
+]);
 const selectButton = document.querySelector("#select-folder");
 const applyButton = document.querySelector("#apply-renames");
 const downloadButton = document.querySelector("#download-plan");
 const planBody = document.querySelector("#plan-body");
 const tableWrap = document.querySelector("#table-wrap");
 const emptyState = document.querySelector("#empty-state");
+const emptyCopy = document.querySelector("#empty-copy");
 const planTitle = document.querySelector("#plan-title");
 const supportNote = document.querySelector("#support-note");
 let plan = [];
 let selectedDirectory;
 
 supportNote.textContent = window.showDirectoryPicker
-  ? "Works entirely on this device."
+  ? "Works entirely on this device. Capture time comes from EXIF when present, otherwise the file's modified time."
   : "Your browser can preview a rename plan, but Chrome or Edge is needed to rename files in place.";
 
 selectButton.addEventListener("click", chooseFolder);
@@ -26,15 +44,28 @@ async function chooseFolder() {
   try {
     const directory = await window.showDirectoryPicker({ mode: "readwrite" });
     selectedDirectory = directory;
-    const items = [];
+    const images = [];
+    const reserved = [];
     for await (const [name, handle] of directory.entries()) {
-      if (handle.kind !== "file") continue;
+      if (handle.kind !== "file") {
+        reserved.push(name);
+        continue;
+      }
       const file = await handle.getFile();
-      if (imageTypes.has(file.type) || /\.(jpe?g|png|webp|heic|heif)$/i.test(name)) items.push({ file, handle });
+      if (isImageName(name) || imageTypes.has(file.type)) images.push({ name, file, handle });
+      else reserved.push(name);
     }
-    plan = await Promise.all(items.map(async item => ({ ...item, date: await captureDate(item.file) })));
-    plan.sort((a, b) => a.date - b.date || a.file.name.localeCompare(b.file.name));
-    plan = plan.map((item, index) => ({ ...item, newName: makeName(item.file.name, item.date, index + 1) }));
+    const captured = [];
+    for (const item of images) {
+      const when = await captureDate(item.file);
+      captured.push({ ...item, parts: when.parts, source: when.source });
+    }
+    const byName = new Map(captured.map((item) => [item.name, item]));
+    plan = buildRenamePlan(captured, reserved).map((row) => ({
+      ...row,
+      file: byName.get(row.name).file,
+      handle: byName.get(row.name).handle,
+    }));
     renderPlan();
   } catch (error) {
     if (error.name !== "AbortError") supportNote.textContent = `Could not open folder: ${error.message}`;
@@ -42,75 +73,123 @@ async function chooseFolder() {
 }
 
 async function captureDate(file) {
-  // JPEG EXIF dates are read when available; other images safely use modified time.
-  if (file.type === "image/jpeg") {
-    try {
-      const text = new TextDecoder("latin1").decode(await file.slice(0, 65536).arrayBuffer());
-      const match = text.match(/20\d\d:[01]\d:[0-3]\d [0-2]\d:[0-5]\d:[0-5]\d/);
-      if (match) return new Date(match[0].replace(/:(?=\d\d:)/, "-").replace(/:(?=\d\d )/, "-").replace(" ", "T"));
-    } catch (_) { /* fall back below */ }
+  try {
+    const length = Math.min(file.size, 48 * 1024 * 1024);
+    if (length) {
+      const bytes = new Uint8Array(await file.slice(0, length).arrayBuffer());
+      const embedded = parseEmbeddedCapture(bytes);
+      if (embedded) return embedded;
+    }
+  } catch (_) {
+    /* Fall back to the file's modified time. */
   }
-  return new Date(file.lastModified);
-}
-
-function makeName(oldName, date, sequence) {
-  const ext = oldName.includes(".") ? oldName.slice(oldName.lastIndexOf(".")).toLowerCase() : "";
-  const pad = number => String(number).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())}_${pad(date.getHours())}-${pad(date.getMinutes())}-${pad(date.getSeconds())}_${String(sequence).padStart(3, "0")}${ext}`;
+  return { parts: partsFromDate(new Date(file.lastModified)), source: "mtime" };
 }
 
 function renderPlan() {
   planBody.replaceChildren();
-  const formatter = new Intl.DateTimeFormat(undefined, { dateStyle:"medium", timeStyle:"medium" });
   plan.forEach((item, index) => {
     const row = document.querySelector("#row-template").content.cloneNode(true);
     row.querySelector(".index").textContent = index + 1;
-    row.querySelector(".old-name").textContent = item.file.name;
-    row.querySelector(".date").textContent = formatter.format(item.date);
+    row.querySelector(".old-name").textContent = item.name;
+    row.querySelector(".date").textContent = formatDisplay(item.parts);
+    row.querySelector(".source").textContent = item.source;
     row.querySelector(".new-name").textContent = item.newName;
     planBody.append(row);
   });
   const count = plan.length;
-  planTitle.textContent = count ? `${count} photo${count === 1 ? "" : "s"} ready to rename` : "No supported photos found";
-  emptyState.hidden = Boolean(count); tableWrap.hidden = !count;
-  applyButton.disabled = !count; downloadButton.disabled = !count;
+  planTitle.textContent = count
+    ? `${count} photo${count === 1 ? "" : "s"} ready to rename`
+    : "No supported photos found";
+  emptyCopy.textContent = count
+    ? ""
+    : "No supported photos in that folder. Use jpg, jpeg, png, heic, webp, or tiff.";
+  emptyState.hidden = Boolean(count);
+  tableWrap.hidden = !count;
+  applyButton.disabled = !count;
+  downloadButton.disabled = !count;
 }
 
 async function applyRenames() {
-  if (!selectedDirectory || !confirm(`Rename ${plan.length} files? This replaces the original filenames and cannot be undone here.`)) return;
+  const changes = plan.filter((item) => item.changed);
+  if (!selectedDirectory || !changes.length) return;
+  if (!confirm(`Rename ${changes.length} file${changes.length === 1 ? "" : "s"}? This replaces the original filenames.`)) {
+    return;
+  }
   applyButton.disabled = true;
+  downloadButton.disabled = true;
   try {
-    // Refuse to overwrite a pre-existing file. This makes the batch safe to retry.
-    for (const item of plan) {
-      if (item.file.name === item.newName) continue;
-      try {
-        await selectedDirectory.getFileHandle(item.newName);
-        throw new Error(`A file named “${item.newName}” already exists. Nothing was changed.`);
-      } catch (error) {
-        if (error.name !== "NotFoundError") throw error;
-      }
-    }
-    // The API has no rename operation. Write each renamed copy first, then remove originals.
-    for (const item of plan) {
-      if (item.file.name === item.newName) continue;
-      const destination = await selectedDirectory.getFileHandle(item.newName, { create: true });
-      const writer = await destination.createWritable();
-      await writer.write(item.file);
-      await writer.close();
-    }
-    for (const item of plan) {
-      if (item.file.name !== item.newName) await selectedDirectory.removeEntry(item.file.name);
-    }
-    supportNote.textContent = `Renamed ${plan.length} photo${plan.length === 1 ? "" : "s"} successfully.`;
-    applyButton.disabled = true;
+    if (typeof changes[0].handle.move === "function") await renameWithMove(changes);
+    else await renameByCopy(changes);
+    supportNote.textContent = `Renamed ${changes.length} photo${changes.length === 1 ? "" : "s"}.`;
     planTitle.textContent = "Rename completed";
+    applyButton.disabled = true;
+    downloadButton.disabled = false;
   } catch (error) {
     supportNote.textContent = error.message;
-  } finally { applyButton.disabled = false; }
+    applyButton.disabled = false;
+    downloadButton.disabled = !plan.length;
+  }
+}
+
+async function renameWithMove(changes) {
+  for (let index = 0; index < changes.length; index++) {
+    const temp = temporaryName(changes[index].name, index);
+    await changes[index].handle.move(temp);
+    changes[index].tempName = temp;
+  }
+  for (const item of changes) {
+    await item.handle.move(item.newName);
+  }
+}
+
+async function renameByCopy(changes) {
+  for (let index = 0; index < changes.length; index++) {
+    const temp = temporaryName(changes[index].name, index);
+    await writeHandle(temp, changes[index].file);
+    changes[index].tempName = temp;
+  }
+  for (const item of changes) await selectedDirectory.removeEntry(item.name);
+  for (const item of changes) {
+    const tempHandle = await selectedDirectory.getFileHandle(item.tempName);
+    const file = await tempHandle.getFile();
+    await writeHandle(item.newName, file);
+    await selectedDirectory.removeEntry(item.tempName);
+  }
+}
+
+function temporaryName(name, index) {
+  const dot = name.lastIndexOf(".");
+  const ext = dot > 0 ? name.slice(dot) : "";
+  return `chrono-tmp-${Date.now()}-${index}${ext}`;
+}
+
+async function writeHandle(name, file) {
+  try {
+    await selectedDirectory.getFileHandle(name);
+    throw new Error(`Refusing to overwrite ${name}`);
+  } catch (error) {
+    if (error.name !== "NotFoundError") throw error;
+  }
+  const destination = await selectedDirectory.getFileHandle(name, { create: true });
+  const writer = await destination.createWritable();
+  await writer.write(file);
+  await writer.close();
 }
 
 function downloadPlan() {
-  const csv = ["Current filename,New filename,Capture time", ...plan.map(item => [item.file.name, item.newName, item.date.toISOString()].map(value => `"${String(value).replaceAll('"', '""')}"`).join(","))].join("\n");
-  const link = Object.assign(document.createElement("a"), { href: URL.createObjectURL(new Blob([csv], { type:"text/csv" })), download:"photo-rename-plan.csv" });
-  link.click(); URL.revokeObjectURL(link.href);
+  const csv = [
+    "Current filename,New filename,Capture time,Source",
+    ...plan.map((item) =>
+      [item.name, item.newName, formatDisplay(item.parts), item.source]
+        .map((value) => `"${String(value).replaceAll('"', '""')}"`)
+        .join(","),
+    ),
+  ].join("\n");
+  const link = Object.assign(document.createElement("a"), {
+    href: URL.createObjectURL(new Blob([csv], { type: "text/csv" })),
+    download: "photo-rename-plan.csv",
+  });
+  link.click();
+  URL.revokeObjectURL(link.href);
 }
