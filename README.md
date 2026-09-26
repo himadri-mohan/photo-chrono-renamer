@@ -41,6 +41,13 @@ Open `index.html` in Chrome or Edge, or serve this folder with any static file s
 
 The page reads the same EXIF dates as the command-line tool. Browsers do not expose file birth time, so photos without EXIF use the file's modified time. Renaming in place uses the File System Access API (Chrome or Edge). Other browsers can still preview a plan and download it.
 
+## Windows and macOS
+
+The tool runs on Windows, macOS, and Linux.
+
+- **Command line:** Works on all three. It uses only Node.js built-ins, so paths and renames are handled portably (Node.js 18 or newer). EXIF dates are read the same way everywhere. When a photo has no EXIF date, the tool falls back to the file's birth (creation) time and then its modified time. macOS and Windows record a birth time, so that fallback is most accurate there; Linux often has none and falls back to the modified time.
+- **Browser page:** Works on both Windows and macOS, but depends on the browser rather than the operating system. Selecting a folder and renaming in place require the File System Access API, available in Chrome and Edge. Safari (the macOS default) and Firefox cannot rename in place; there the page still previews the plan and downloads it as CSV.
+
 ## Deploy with GitHub and Vercel
 
 1. Create an empty GitHub repository named `photo-chrono-renamer`.
