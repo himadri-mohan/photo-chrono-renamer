@@ -9,6 +9,8 @@ YYYY-MM-DD_HH-MM-SS_2.ext
 
 The first photo for a timestamp keeps the plain name. Later photos that would use the same name get `_2`, `_3`, and so on. Existing files are never overwritten.
 
+New here? Follow the step-by-step [tutorial](TUTORIAL.md) for the command line and the browser page.
+
 ## Time source
 
 1. EXIF `DateTimeOriginal`
